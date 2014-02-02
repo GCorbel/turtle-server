@@ -1,34 +1,23 @@
-import RPi.GPIO as GPIO
+import RPIO.PWM as PWM
+import RPIO
 import socket
 import json
 import sys
-from optparse import OptionParser
 
-def main():
-    parser = OptionParser()
-    parser.add_option("-p", "--port", dest="port", help="The port of destination")
-    (options, args) = parser.parse_args()
+servo = PWM.Servo()
 
-    if options.port is None:
-        print("You must to a port")
-    else:
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.bind(('', int(options.port)))
-        s.listen(1)
-        conn, addr = s.accept()
+def socket_callback(socket, val):
+    received_text = val.decode()
+    for key, value in json.loads(received_text).items():
+        print("%d=%d" % (int(key), int(value)))
+        servo.set_servo(int(key), int(value))
+    socket.send(b"ok")
 
-        GPIO.setmode(GPIO.BOARD)
-        GPIO.setup(7, GPIO.OUT)
+RPIO.add_tcp_callback(8081, socket_callback)
 
-        try:
-            while True:
-                received_text = conn.recv(1024).decode()
-                for key, value in json.loads(received_text).items():
-                    GPIO.output(int(key), int(value))
-                conn.sendall(bytes(1))
-        finally:
-            conn.close()
-            GPIO.cleanup()
-
-if __name__ == "__main__":
-    main()
+print("ready")
+servo.set_servo(18, 1500)
+servo.set_servo(23, 1500)
+servo.set_servo(4, 1500)
+servo.set_servo(25, 1090)
+RPIO.wait_for_interrupts()
